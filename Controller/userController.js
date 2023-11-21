@@ -361,98 +361,114 @@ exports.resetPassword = async (req, res, next) => {
     .createHash("sha256")
     .update(providedToken)
     .digest("hex");
-  const user = await User.findById(id);
-  let newpassword;
-  const match = await user.comparePassword(req.body.password, user.password);
-  const tokenisValid = hashOfProvidedToken === user.passwordResetToken;
-  const tokenIsExpired = user.passwordResetTokenExpires < Date.now();
-  if (!user) {
-    return res
-      .status(401)
-      .json({ status: "error", message: "user does not exist" });
-  } else if (match) {
-    return res.status(404).json({
-      status: "error",
-      message: "password cannot be the same as your previous password",
-    });
-  } else if (user && tokenisValid && !tokenIsExpired && !match) {
-    newpassword = await user.encryptpassword(
-      req.body.password,
-      req.body.confirmPassword
-    );
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      {
-        password: newpassword,
-        confirmPassword: undefined,
-      },
-      { validateBeforeSave: false }
-    );
 
-    let config = {
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASSWORD,
-      },
-    };
+  try {
+    const user = await User.findById(id);
 
-    const currentTimestamp = Date.now();
+    if (!user) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "User does not exist" });
+    }
 
-    const date = new Date(currentTimestamp);
+    const match = await user.comparePassword(req.body.password, user.password);
+    const tokenIsValid = hashOfProvidedToken === user.passwordResetToken;
+    const tokenIsExpired = user.passwordResetTokenExpires < Date.now();
 
-    const options = {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "numeric",
-      second: "numeric",
-      timeZoneName: "short",
-    };
-
-    const formattedDate = date.toLocaleString("en-US", options);
-    let transporter = nodemailer.createTransport(config);
-
-    let MailGenerator = new Mailgen({
-      theme: "default",
-      product: {
-        name: "Wellfound",
-        link: "https://mailgen.js/",
-        copyright: "Copyright © 2023 Wellfound. All rights reserved.",
-      },
-    });
-    let response = {
-      body: {
-        name: user.firstname,
-        intro: "You have successfully changed your password",
-        dictionary: { date: formattedDate },
-        signature: "Sincerely",
-        outro: "Didn't do this? Be sure to change your password right away.",
-      },
-    };
-    let mail = MailGenerator.generate(response);
-    let message = {
-      from: process.env.EMAIL,
-      to: user.email,
-      subject: `${user.firstname}, your password was successfully reset`,
-      html: mail,
-    };
-    transporter
-      .sendMail(message)
-      .then(() => {
-        return res.status(200).json({
-          message: "success",
-        });
-      })
-      .catch(() => {
-        return res.status(404).json({ message: "failed" });
+    if (match) {
+      return res.status(404).json({
+        status: "error",
+        message: "Password cannot be the same as your previous password",
       });
-    return res.status(200).json({ status: "success" });
-  } else {
+    }
+
+    if (tokenIsValid && !tokenIsExpired && !match) {
+      const newpassword = await user.encryptpassword(
+        req.body.password,
+        req.body.confirmPassword
+      );
+      const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        {
+          password: newpassword,
+          confirmPassword: undefined,
+        },
+        { validateBeforeSave: false }
+      );
+
+      // Email sending logic
+      const config = {
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL,
+          pass: process.env.PASSWORD,
+        },
+      };
+
+      const transporter = nodemailer.createTransport(config);
+
+      const currentTimestamp = Date.now();
+      const date = new Date(currentTimestamp);
+      const options = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        timeZoneName: "short",
+      };
+      const formattedDate = date.toLocaleString("en-US", options);
+
+      const mailGenerator = new Mailgen({
+        theme: "default",
+        product: {
+          name: "Wellfound",
+          link: "https://mailgen.js/",
+          copyright: "Copyright © 2023 Wellfound. All rights reserved.",
+        },
+      });
+
+      const response = {
+        body: {
+          name: user.firstname,
+          intro: "You have successfully changed your password",
+          dictionary: { date: formattedDate },
+          signature: "Sincerely",
+          outro: "Didn't do this? Be sure to change your password right away.",
+        },
+      };
+
+      const mail = mailGenerator.generate(response);
+      const message = {
+        from: process.env.EMAIL,
+        to: user.email,
+        subject: `${user.firstname}, your password was successfully reset`,
+        html: mail,
+      };
+
+      transporter.sendMail(message, (error, info) => {
+        if (error) {
+          console.error(error);
+          return res
+            .status(500)
+            .json({ status: "error", message: "Failed to send email" });
+        } else {
+          return res
+            .status(200)
+            .json({ status: "success", message: "Password reset successful" });
+        }
+      });
+    } else {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Please reset password" });
+    }
+  } catch (error) {
+    console.error(error);
     return res
-      .status(400)
-      .json({ status: "error", message: "please reset password" });
+      .status(500)
+      .json({ status: "error", message: "Internal server error" });
   }
 };
 
