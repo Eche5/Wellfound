@@ -45,7 +45,7 @@ exports.createUser = async (req, res) => {
           button: {
             color: "#22BC66", // Optional action button color
             text: "Verify your account",
-            link: ` https://e-rent-green.vercel.app/verify/${newUser._id}`,
+            link: ` https://wellfound-gamma.vercel.app/verify/${newUser._id}`,
           },
         },
         signature: "Sincerely",
@@ -108,7 +108,7 @@ exports.resendverification = async (req, res) => {
         button: {
           color: "#22BC66", // Optional action button color
           text: "Verify your account",
-          link: ` https://e-rent-green.vercel.app/verify/${user._id}`,
+          link: ` https://wellfound-gamma.vercel.app/verify/${user._id}`,
         },
       },
       signature: "Sincerely",
@@ -325,7 +325,7 @@ exports.forgotPassword = async (req, res, next) => {
           button: {
             color: "#22BC66", // Optional action button color
             text: "Reset your password",
-            link: `https://e-rent-green.vercel.app/resetpassword/${user._id}/${reset}`,
+            link: `https://wellfound-gamma.vercel.app/resetpassword/${user._id}/${reset}`,
           },
         },
         signature: "Sincerely",
